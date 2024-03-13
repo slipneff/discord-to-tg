@@ -1,13 +1,15 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/diamondburned/arikawa/v3/gateway"
+	"github.com/diamondburned/arikawa/v3/session"
 	"github.com/spf13/viper"
 	tgbotapi "gopkg.in/telegram-bot-api.v4"
 )
@@ -25,6 +27,8 @@ func (m *Message) ToString() string {
 type Config struct {
 	DiscordToken   string
 	TelegramToken  string
+	Login          string
+	Password       string
 	DiscordIDs     []string
 	TelegramChatID map[int64]bool
 }
@@ -59,14 +63,14 @@ func MustLoadConfig(path string) *Config {
 
 func main() {
 	config := MustLoadConfig("config.yaml")
-
+	ctx := context.Background()
 	discordChannels := map[string]bool{}
 	for _, v := range config.DiscordIDs {
 		discordChannels[v] = true
 	}
-	discord, err := discordgo.New("Bot " + config.DiscordToken)
+	discord, err := session.Login(ctx, config.Login, config.Password, "")
 	if err != nil {
-		log.Fatal("Error creating Discord session: ", err)
+		log.Fatalf("Ошибка при создании сессии Discord: %v", err)
 	}
 
 	telegram, err := tgbotapi.NewBotAPI(config.TelegramToken)
@@ -74,37 +78,29 @@ func main() {
 		log.Fatal("Error creating Telegram bot: ", err)
 	}
 
-	discordMessages := make(chan *discordgo.MessageCreate)
-
-	err = discord.Open()
+	err = discord.Open(ctx)
 	if err != nil {
 		log.Fatal("Error opening Discord session: ", err)
 	}
 	defer discord.Close()
 
-	discord.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
-		if discordChannels[m.ChannelID] {
-			discordMessages <- m
+	discord.AddHandler(func(m *gateway.MessageCreateEvent) {
+		if discordChannels[m.ChannelID.String()] {
+			channel, err := discord.Channel(m.ChannelID)
+			if err != nil {
+				log.Fatal("Error retrieving channel information: ", err)
+			}
+			guild, err := discord.Guild(channel.GuildID)
+			if err != nil {
+				log.Fatal("Error retrieving guild information: ", err)
+			}
+
+			sendMessageToTelegram(config, telegram, Message{Content: m.Content, ChannelName: channel.Name, GuildName: guild.Name})
 		}
 	})
-	log.Println("Started without errors")
-	go func() {
-		for {
-			select {
-			case msg := <-discordMessages:
-				channel, err := discord.Channel(msg.ChannelID)
-				if err != nil {
-					log.Fatal("Error retrieving channel information: ", err)
-				}
-				guild, err := discord.Guild(channel.GuildID)
-				if err != nil {
-					log.Fatal("Error retrieving guild information: ", err)
-				}
 
-				sendMessageToTelegram(config, telegram, Message{Content: msg.Content, ChannelName: channel.Name, GuildName: guild.Name})
-			}
-		}
-	}()
+	log.Println("Started without errors")
+
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
