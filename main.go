@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/diamondburned/arikawa/v3/gateway"
@@ -25,11 +26,9 @@ func (m *Message) ToString() string {
 }
 
 type Config struct {
-	DiscordToken   string
 	TelegramToken  string
 	Login          string
 	Password       string
-	DiscordIDs     []string
 	TelegramChatID map[int64]bool
 }
 
@@ -65,9 +64,6 @@ func main() {
 	config := MustLoadConfig("config.yaml")
 	ctx := context.Background()
 	discordChannels := map[string]bool{}
-	for _, v := range config.DiscordIDs {
-		discordChannels[v] = true
-	}
 	discord, err := session.Login(ctx, config.Login, config.Password, "")
 	if err != nil {
 		log.Fatalf("Ошибка при создании сессии Discord: %v", err)
@@ -103,9 +99,21 @@ func main() {
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
-
 	updates, _ := telegram.GetUpdatesChan(u)
 	for update := range updates {
+		message := strings.Split(update.Message.Text, " ")
+		if message[0] == "/add" {
+			fmt.Println(message)
+			discordChannels[message[1]] = true
+			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Discord channel registered")
+			telegram.Send(msg)
+		}
+		if message[0] == "/remove" {
+			fmt.Println(message)
+			discordChannels[message[1]] = false
+			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Discord channel unregistered")
+			telegram.Send(msg)
+		}
 		if update.Message != nil {
 			chatID := update.Message.Chat.ID
 			if !config.TelegramChatID[chatID] {

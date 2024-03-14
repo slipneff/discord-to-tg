@@ -2,13 +2,9 @@ module discord-bot
 
 go 1.21.5
 
-require (
-	github.com/bwmarrin/discordgo v0.27.1
-	github.com/diamondburned/arikawa/v2 v2.1.0
-)
+require github.com/diamondburned/arikawa/v2 v2.1.0
 
 require (
-	github.com/diamondburned/arikawa v1.3.14 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/go-telegram-bot-api/telegram-bot-api v4.6.4+incompatible // indirect
 	github.com/gorilla/schema v1.2.0 // indirect
@@ -38,7 +34,6 @@ require (
 	github.com/diamondburned/arikawa/v3 v3.3.5
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/spf13/viper v1.18.2
-	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
 	gopkg.in/telegram-bot-api.v4 v4.6.4
 )
