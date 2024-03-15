@@ -1,4 +1,5 @@
 TelegramToken: token
+AllMessages: true
 Login: discord-login
 Password: discord-password
 DiscordIDs:

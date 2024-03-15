@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/diamondburned/arikawa/v3/gateway"
@@ -25,12 +26,11 @@ func (m *Message) ToString() string {
 }
 
 type Config struct {
-	DiscordToken   string
 	TelegramToken  string
 	Login          string
 	Password       string
-	DiscordIDs     []string
 	TelegramChatID map[int64]bool
+	AllMessages    bool
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -65,9 +65,6 @@ func main() {
 	config := MustLoadConfig("config.yaml")
 	ctx := context.Background()
 	discordChannels := map[string]bool{}
-	for _, v := range config.DiscordIDs {
-		discordChannels[v] = true
-	}
 	discord, err := session.Login(ctx, config.Login, config.Password, "")
 	if err != nil {
 		log.Fatalf("Ошибка при создании сессии Discord: %v", err)
@@ -85,7 +82,7 @@ func main() {
 	defer discord.Close()
 
 	discord.AddHandler(func(m *gateway.MessageCreateEvent) {
-		if discordChannels[m.ChannelID.String()] {
+		if config.AllMessages || discordChannels[m.ChannelID.String()] {
 			channel, err := discord.Channel(m.ChannelID)
 			if err != nil {
 				log.Fatal("Error retrieving channel information: ", err)
@@ -103,18 +100,31 @@ func main() {
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
-
 	updates, _ := telegram.GetUpdatesChan(u)
 	for update := range updates {
+		if !config.AllMessages {
+			message := strings.Split(update.Message.Text, " ")
+			if len(message) > 1 {
+				if message[0] == "/add" {
+					discordChannels[message[1]] = true
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Discord channel registered")
+					telegram.Send(msg)
+				}
+				if message[0] == "/remove" {
+					discordChannels[message[1]] = false
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Discord channel unregistered")
+					telegram.Send(msg)
+				}
+			}
+		}
+
 		if update.Message != nil {
 			chatID := update.Message.Chat.ID
 			if !config.TelegramChatID[chatID] {
 				msg := tgbotapi.NewMessage(chatID, "Chat registered")
-
+				config.TelegramChatID[chatID] = true
 				telegram.Send(msg)
 			}
-			config.TelegramChatID[chatID] = true
-
 		}
 	}
 
