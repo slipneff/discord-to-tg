@@ -1,10 +1,7 @@
-TelegramToken: token
-AllMessages: true
-Login: discord-login
-Password: discord-password
-DiscordIDs:
-  - id1
-  - id2
-  - id3
-  - id4
-  - id5
+TelegramTokenForum: 
+LoginForum: 
+PasswordForum: 
+
+TelegramTokenParser:
+LoginParser: 
+PasswordParser: 
