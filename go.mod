@@ -30,6 +30,8 @@ require (
 require (
 	github.com/diamondburned/arikawa/v3 v3.3.5
 	github.com/gorilla/websocket v1.4.2 // indirect
+	github.com/jmoiron/sqlx v1.3.5
+	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/spf13/viper v1.18.2
 	golang.org/x/sys v0.15.0 // indirect
 	gopkg.in/telegram-bot-api.v4 v4.6.4
