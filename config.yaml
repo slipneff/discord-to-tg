@@ -1,7 +1,5 @@
-TelegramTokenForum: 
-LoginForum: 
-PasswordForum: 
+TelegramTokenForum: tg_token
+DiscordTokenForum: ds_token
 
-TelegramTokenParser:
-LoginParser: 
-PasswordParser: 
+TelegramTokenParser: tg_token
+DiscordTokenParser: ds_token

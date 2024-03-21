@@ -39,8 +39,7 @@ func (m *Message) ToString() string {
 
 type Config struct {
 	TelegramTokenForum string
-	LoginForum         string
-	PasswordForum      string
+	DiscordTokenForum  string
 	TelegramChatID     map[int64][]string
 }
 
@@ -75,10 +74,8 @@ func MustLoadConfig(path string) *Config {
 func main() {
 	config := MustLoadConfig("config.yaml")
 	ctx := context.Background()
-	discord, err := session.Login(ctx, config.LoginForum, config.PasswordForum, "")
-	if err != nil {
-		log.Fatalf("Ошибка при создании сессии Discord: %v", err)
-	}
+
+	discord := session.New(config.DiscordTokenForum)
 
 	telegram, err := tgbotapi.NewBotAPI(config.TelegramTokenForum)
 	if err != nil {

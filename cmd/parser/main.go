@@ -38,10 +38,9 @@ func (m *Message) ToString() string {
 }
 
 type Config struct {
-	TelegramTokenParser  string
-	LoginParser          string
-	PasswordParser       string
-	TelegramChatID map[int64][]string
+	TelegramTokenParser string
+	DiscordTokenParser  string
+	TelegramChatID      map[int64][]string
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -75,10 +74,7 @@ func MustLoadConfig(path string) *Config {
 func main() {
 	config := MustLoadConfig("config.yaml")
 	ctx := context.Background()
-	discord, err := session.Login(ctx, config.LoginParser, config.PasswordParser, "")
-	if err != nil {
-		log.Fatalf("Ошибка при создании сессии Discord: %v", err)
-	}
+	discord := session.New(config.DiscordTokenParser)
 
 	telegram, err := tgbotapi.NewBotAPI(config.TelegramTokenParser)
 	if err != nil {
