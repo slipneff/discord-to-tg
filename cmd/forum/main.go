@@ -106,20 +106,24 @@ func main() {
 	defer discord.Close()
 
 	discord.AddHandler(func(m *gateway.MessageCreateEvent) {
-		guilds, _ := getChannels(db)
-		for _, guild := range guilds {
-			if guild == m.GuildID.String() {
-				channel, err := discord.Channel(m.ChannelID)
-				if err != nil {
-					log.Fatal("Error retrieving channel information: ", err)
+		err := discord.JoinThread(m.ChannelID)
+		if err == nil {
+			guilds, _ := getChannels(db)
+			for _, guild := range guilds {
+				if guild == m.GuildID.String() {
+					channel, err := discord.Channel(m.ChannelID)
+					if err != nil {
+						log.Fatal("Error retrieving channel information: ", err)
+					}
+					guild, err := discord.Guild(channel.GuildID)
+					if err != nil {
+						log.Fatal("Error retrieving guild information: ", err)
+					}
+					sendMessageToTelegram(db, telegram, Message{Content: m.Content, ChannelName: channel.Name, GuildName: guild.Name, GuildID: m.GuildID.String()})
 				}
-				guild, err := discord.Guild(channel.GuildID)
-				if err != nil {
-					log.Fatal("Error retrieving guild information: ", err)
-				}
-				sendMessageToTelegram(db, telegram, Message{Content: m.Content, ChannelName: channel.Name, GuildName: guild.Name, GuildID: m.GuildID.String()})
 			}
 		}
+
 	})
 
 	log.Println("Started without errors")
