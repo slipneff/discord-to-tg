@@ -175,26 +175,26 @@ func isChatRegistered(db *sqlx.DB, chatID int64) bool {
 }
 
 func registerChat(db *sqlx.DB, chatID int64) error {
-	_, err := db.Exec("INSERT INTO configuration (chat_id, channel_id) VALUES (?, ?)", chatID, "register")
+	_, err := db.Exec("INSERT INTO configuration (chat_id, guild_id) VALUES (?, ?)", chatID, "register")
 	return err
 }
 
 func addChannel(db *sqlx.DB, chatID int64, guildID string) error {
-	_, err := db.Exec("INSERT INTO configuration (chat_id, channel_id) VALUES (?, ?)", chatID, guildID)
+	_, err := db.Exec("INSERT INTO configuration (chat_id, guild_id) VALUES (?, ?)", chatID, guildID)
 	return err
 }
 
 func removeChannel(db *sqlx.DB, chatID int64, guildID string) error {
-	_, err := db.Exec("DELETE FROM configuration WHERE (chat_id) = ? AND (channel_id) = ?", chatID, guildID)
+	_, err := db.Exec("DELETE FROM configuration WHERE (chat_id) = ? AND (guild_id) = ?", chatID, guildID)
 	return err
 }
 func getChannels(db *sqlx.DB) ([]string, error) {
 	var chatIDs []string
-	err := db.Select(&chatIDs, "SELECT (channel_id) FROM configuration")
+	err := db.Select(&chatIDs, "SELECT (guild_id) FROM configuration")
 	return chatIDs, err
 }
 func getChatByChannelID(db *sqlx.DB, guildID string) (int64, error) {
 	var chatID int64
-	err := db.Get(&chatID, "SELECT (chat_id) FROM configuration WHERE (channel_id) = ?", guildID)
+	err := db.Get(&chatID, "SELECT (chat_id) FROM configuration WHERE (guild_id) = ?", guildID)
 	return chatID, err
 }
