@@ -159,6 +159,7 @@ func main() {
 
 func sendMessageToTelegram(db *sqlx.DB, bot *tgbotapi.BotAPI, content Message) {
 	chat, _ := getChatByChannelID(db, content.GuildID)
+	fmt.Println(fmt.Printf("DiscordID: %s | TelegramID: %d\n", content.GuildID, chat))
 	msg := tgbotapi.NewMessage(chat, content.ToString())
 	_, err := bot.Send(msg)
 	if err != nil {
