@@ -41,7 +41,7 @@ type Message struct {
 	Content     string
 	GuildName   string
 	ChannelName string
-	GuildID     string
+	ChatID      int64
 }
 
 func (m *Message) ToString() string {
@@ -108,19 +108,17 @@ func main() {
 	discord.AddHandler(func(m *gateway.MessageCreateEvent) {
 		err := discord.JoinThread(m.ChannelID)
 		if err == nil {
-			guilds, _ := getChannels(db)
-			for _, guild := range guilds {
-				if guild == m.GuildID.String() {
-					channel, err := discord.Channel(m.ChannelID)
-					if err != nil {
-						log.Fatal("Error retrieving channel information: ", err)
-					}
-					guild, err := discord.Guild(channel.GuildID)
-					if err != nil {
-						log.Fatal("Error retrieving guild information: ", err)
-					}
-					sendMessageToTelegram(db, telegram, Message{Content: m.Content, ChannelName: channel.Name, GuildName: guild.Name, GuildID: m.GuildID.String()})
+			guilds, _ := getChatByChannelID(db, m.GuildID.String())
+			for _, guildID := range guilds {
+				channel, err := discord.Channel(m.ChannelID)
+				if err != nil {
+					log.Fatal("Error retrieving channel information: ", err)
 				}
+				guild, err := discord.Guild(channel.GuildID)
+				if err != nil {
+					log.Fatal("Error retrieving guild information: ", err)
+				}
+				sendMessageToTelegram(telegram, Message{Content: m.Content, ChannelName: channel.Name, GuildName: guild.Name, ChatID: guildID})
 			}
 		}
 
@@ -147,11 +145,11 @@ func main() {
 				}
 			}
 
-			chatID := update.Message.Chat.ID
-			if !isChatRegistered(db, chatID) {
-				msg := tgbotapi.NewMessage(chatID, "Chat registered")
+			fmt.Println(update.Message.Chat.ID)
+			if !isChatRegistered(db, update.Message.Chat.ID) {
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Chat registered")
 				telegram.Send(msg)
-				registerChat(db, chatID)
+				registerChat(db, update.Message.Chat.ID)
 			}
 		}
 	}
@@ -162,14 +160,13 @@ func main() {
 	log.Println("Shutting down...")
 }
 
-func sendMessageToTelegram(db *sqlx.DB, bot *tgbotapi.BotAPI, content Message) {
-	chat, _ := getChatByChannelID(db, content.GuildID)
-	fmt.Println(fmt.Printf("DiscordID: %s | TelegramID: %d\n", content.GuildID, chat))
-	msg := tgbotapi.NewMessage(chat, content.ToString())
+func sendMessageToTelegram(bot *tgbotapi.BotAPI, content Message) {
+	msg := tgbotapi.NewMessage(content.ChatID, content.ToString())
 	_, err := bot.Send(msg)
 	if err != nil {
 		log.Println("Error sending message to Telegram: ", err)
 	}
+	// }
 }
 
 func isChatRegistered(db *sqlx.DB, chatID int64) bool {
@@ -192,13 +189,9 @@ func removeChannel(db *sqlx.DB, chatID int64, guildID string) error {
 	_, err := db.Exec("DELETE FROM configuration WHERE (chat_id) = ? AND (guild_id) = ?", chatID, guildID)
 	return err
 }
-func getChannels(db *sqlx.DB) ([]string, error) {
-	var chatIDs []string
-	err := db.Select(&chatIDs, "SELECT (guild_id) FROM configuration")
-	return chatIDs, err
-}
-func getChatByChannelID(db *sqlx.DB, guildID string) (int64, error) {
-	var chatID int64
-	err := db.Get(&chatID, "SELECT (chat_id) FROM configuration WHERE (guild_id) = ?", guildID)
+
+func getChatByChannelID(db *sqlx.DB, guildID string) ([]int64, error) {
+	var chatID []int64
+	err := db.Select(&chatID, "SELECT chat_id FROM configuration WHERE guild_id = ?", guildID)
 	return chatID, err
 }
