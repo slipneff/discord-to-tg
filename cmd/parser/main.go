@@ -21,7 +21,7 @@ type Message struct {
 	Content     string
 	GuildName   string
 	ChannelName string
-	ChannelID   string
+	ChatID      int64
 }
 
 func (m *Message) ToString() string {
@@ -104,20 +104,19 @@ func main() {
 	defer discord.Close()
 
 	discord.AddHandler(func(m *gateway.MessageCreateEvent) {
-		channels, _ := getChannels(db)
-		for _, channel := range channels {
-			if channel == m.ChannelID.String() {
-				channel, err := discord.Channel(m.ChannelID)
-				if err != nil {
-					log.Fatal("Error retrieving channel information: ", err)
-				}
-				guild, err := discord.Guild(channel.GuildID)
-				if err != nil {
-					log.Fatal("Error retrieving guild information: ", err)
-				}
-
-				sendMessageToTelegram(db, telegram, Message{Content: m.Content, ChannelName: channel.Name, GuildName: guild.Name, ChannelID: m.ChannelID.String()})
+		chats, _ := getChatByChannelID(db, m.ChannelID.String())
+		for _, chat := range chats {
+			channel, err := discord.Channel(m.ChannelID)
+			if err != nil {
+				log.Fatal("Error retrieving channel information: ", err)
 			}
+			guild, err := discord.Guild(channel.GuildID)
+			if err != nil {
+				log.Fatal("Error retrieving guild information: ", err)
+			}
+			message := Message{Content: m.Content, ChannelName: channel.Name, GuildName: guild.Name, ChatID: chat}
+			fmt.Println(message)
+			sendMessageToTelegram(telegram, message)
 		}
 	})
 
@@ -157,10 +156,8 @@ func main() {
 	log.Println("Shutting down...")
 }
 
-func sendMessageToTelegram(db *sqlx.DB, bot *tgbotapi.BotAPI, content Message) {
-	chat, _ := getChatByChannelID(db, content.ChannelID)
-	fmt.Println(fmt.Printf("DiscordID: %s | TelegramID: %d\n", content.ChannelID, chat))
-	msg := tgbotapi.NewMessage(chat, content.ToString())
+func sendMessageToTelegram(bot *tgbotapi.BotAPI, content Message) {
+	msg := tgbotapi.NewMessage(content.ChatID, content.ToString())
 	_, err := bot.Send(msg)
 	if err != nil {
 		log.Println("Error sending message to Telegram: ", err)
@@ -187,13 +184,9 @@ func removeChannel(db *sqlx.DB, chatID int64, channelID string) error {
 	_, err := db.Exec("DELETE FROM configuration WHERE (chat_id) = ? AND (channel_id) = ?", chatID, channelID)
 	return err
 }
-func getChannels(db *sqlx.DB) ([]string, error) {
-	var chatIDs []string
-	err := db.Select(&chatIDs, "SELECT (channel_id) FROM configuration")
-	return chatIDs, err
-}
-func getChatByChannelID(db *sqlx.DB, channelID string) (int64, error) {
-	var chatID int64
-	err := db.Get(&chatID, "SELECT (chat_id) FROM configuration WHERE (channel_id) = ?", channelID)
+
+func getChatByChannelID(db *sqlx.DB, channelID string) ([]int64, error) {
+	var chatID []int64
+	err := db.Select(&chatID, "SELECT chat_id FROM configuration WHERE channel_id = ?", channelID)
 	return chatID, err
 }

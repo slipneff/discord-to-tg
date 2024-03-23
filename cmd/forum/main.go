@@ -29,7 +29,6 @@ func connectDB() (*sqlx.DB, error) {
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS configuration (
 		chat_id INTEGER,
 		guild_id TEXT,
-		first BOOLEAN,
 		PRIMARY KEY (chat_id, guild_id)
 	)`)
 	if err != nil {
@@ -150,8 +149,6 @@ func main() {
 					telegram.Send(msg)
 				}
 			}
-
-			fmt.Println(update.Message.Chat.ID)
 			if !isChatRegistered(db, update.Message.Chat.ID) {
 				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Chat registered")
 				telegram.Send(msg)
