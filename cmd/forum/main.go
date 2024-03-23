@@ -9,6 +9,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/session"
 	"github.com/jmoiron/sqlx"
@@ -28,6 +29,7 @@ func connectDB() (*sqlx.DB, error) {
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS configuration (
 		chat_id INTEGER,
 		guild_id TEXT,
+		first BOOLEAN,
 		PRIMARY KEY (chat_id, guild_id)
 	)`)
 	if err != nil {
@@ -110,15 +112,19 @@ func main() {
 		if err == nil {
 			guilds, _ := getChatByChannelID(db, m.GuildID.String())
 			for _, guildID := range guilds {
-				channel, err := discord.Channel(m.ChannelID)
-				if err != nil {
-					log.Fatal("Error retrieving channel information: ", err)
+				if strings.Contains(m.Message.Content, "@everyone") || isFirstMessageInChannel(discord, m.ChannelID, m.ID) {
+					channel, err := discord.Channel(m.ChannelID)
+					if err != nil {
+						log.Fatal("Error retrieving channel information: ", err)
+					}
+					guild, err := discord.Guild(channel.GuildID)
+					if err != nil {
+						log.Fatal("Error retrieving guild information: ", err)
+					}
+					message := Message{Content: m.Content, ChannelName: channel.Name, GuildName: guild.Name, ChatID: guildID}
+					fmt.Println(message)
+					sendMessageToTelegram(telegram, message)
 				}
-				guild, err := discord.Guild(channel.GuildID)
-				if err != nil {
-					log.Fatal("Error retrieving guild information: ", err)
-				}
-				sendMessageToTelegram(telegram, Message{Content: m.Content, ChannelName: channel.Name, GuildName: guild.Name, ChatID: guildID})
 			}
 		}
 
@@ -166,7 +172,19 @@ func sendMessageToTelegram(bot *tgbotapi.BotAPI, content Message) {
 	if err != nil {
 		log.Println("Error sending message to Telegram: ", err)
 	}
-	// }
+}
+func isFirstMessageInChannel(discord1 *session.Session, channelID discord.ChannelID, messageID discord.MessageID) bool {
+	// Получаем список сообщений в канале
+	messages, err := discord1.MessagesBefore(channelID, messageID, 10)
+	if err != nil {
+		log.Printf("Ошибка при получении сообщений из канала: %v", err)
+		return false
+	}
+	if len(messages) == 0 {
+		return true
+	}
+
+	return false
 }
 
 func isChatRegistered(db *sqlx.DB, chatID int64) bool {
