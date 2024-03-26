@@ -7,9 +7,9 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 
-	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/session"
 	"github.com/jmoiron/sqlx"
@@ -105,13 +105,45 @@ func main() {
 		log.Fatal("Error opening Discord session: ", err)
 	}
 	defer discord.Close()
+	var threadCreationLock sync.Mutex
+	var threadCreationHandled = make(map[string]bool)
+
+	discord.AddHandler(func(m *gateway.ThreadCreateEvent) {
+		threadCreationLock.Lock()
+		defer threadCreationLock.Unlock()
+
+		if threadCreationHandled[m.ID.String()] {
+			return
+		}
+		threadCreationHandled[m.ID.String()] = true
+
+		err := discord.JoinThread(m.ID)
+		if err == nil {
+			messages, _ := discord.Messages(m.Channel.ID, 10)
+			message := messages[len(messages)-1]
+			guilds, _ := getChatByChannelID(db, m.GuildID.String())
+			for _, guildID := range guilds {
+				channel, err := discord.Channel(message.ChannelID)
+				if err != nil {
+					log.Fatal("Error retrieving channel information: ", err)
+				}
+				guild, err := discord.Guild(channel.GuildID)
+				if err != nil {
+					log.Fatal("Error retrieving guild information: ", err)
+				}
+				message := Message{Content: message.Content, ChannelName: channel.Name, GuildName: guild.Name, ChatID: guildID}
+				fmt.Println(message)
+				sendMessageToTelegram(telegram, message)
+			}
+		}
+	})
 
 	discord.AddHandler(func(m *gateway.MessageCreateEvent) {
 		err := discord.JoinThread(m.ChannelID)
 		if err == nil {
 			guilds, _ := getChatByChannelID(db, m.GuildID.String())
 			for _, guildID := range guilds {
-				if strings.Contains(m.Message.Content, "@everyone") || isFirstMessageInChannel(discord, m.ChannelID, m.ID) || strings.Contains(strings.ToLower(m.Message.Content), "introduction") {
+				if strings.Contains(m.Message.Content, "@everyone") {
 					channel, err := discord.Channel(m.ChannelID)
 					if err != nil {
 						log.Fatal("Error retrieving channel information: ", err)
@@ -126,7 +158,6 @@ func main() {
 				}
 			}
 		}
-
 	})
 
 	log.Println("Started without errors")
@@ -169,19 +200,6 @@ func sendMessageToTelegram(bot *tgbotapi.BotAPI, content Message) {
 	if err != nil {
 		log.Println("Error sending message to Telegram: ", err)
 	}
-}
-func isFirstMessageInChannel(discord1 *session.Session, channelID discord.ChannelID, messageID discord.MessageID) bool {
-	// Получаем список сообщений в канале
-	messages, err := discord1.MessagesBefore(channelID, messageID, 10)
-	if err != nil {
-		log.Printf("Ошибка при получении сообщений из канала: %v", err)
-		return false
-	}
-	if len(messages) == 0 {
-		return true
-	}
-
-	return false
 }
 
 func isChatRegistered(db *sqlx.DB, chatID int64) bool {
