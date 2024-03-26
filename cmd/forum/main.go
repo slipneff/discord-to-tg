@@ -111,7 +111,7 @@ func main() {
 		if err == nil {
 			guilds, _ := getChatByChannelID(db, m.GuildID.String())
 			for _, guildID := range guilds {
-				if strings.Contains(m.Message.Content, "@everyone") || isFirstMessageInChannel(discord, m.ChannelID, m.ID) {
+				if strings.Contains(m.Message.Content, "@everyone") || isFirstMessageInChannel(discord, m.ChannelID, m.ID) || strings.Contains(strings.ToLower(m.Message.Content), "introduction") {
 					channel, err := discord.Channel(m.ChannelID)
 					if err != nil {
 						log.Fatal("Error retrieving channel information: ", err)
