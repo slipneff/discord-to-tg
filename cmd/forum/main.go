@@ -120,20 +120,22 @@ func main() {
 		err := discord.JoinThread(m.ID)
 		if err == nil {
 			messages, _ := discord.Messages(m.Channel.ID, 10)
-			message := messages[len(messages)-1]
-			guilds, _ := getChatByChannelID(db, m.GuildID.String())
-			for _, guildID := range guilds {
-				channel, err := discord.Channel(message.ChannelID)
-				if err != nil {
-					log.Fatal("Error retrieving channel information: ", err)
+			if len(messages) > 0 {
+				message := messages[len(messages)-1]
+				guilds, _ := getChatByChannelID(db, m.GuildID.String())
+				for _, guildID := range guilds {
+					channel, err := discord.Channel(message.ChannelID)
+					if err != nil {
+						log.Fatal("Error retrieving channel information: ", err)
+					}
+					guild, err := discord.Guild(channel.GuildID)
+					if err != nil {
+						log.Fatal("Error retrieving guild information: ", err)
+					}
+					message := Message{Content: message.Content, ChannelName: channel.Name, GuildName: guild.Name, ChatID: guildID}
+					fmt.Println(message)
+					sendMessageToTelegram(telegram, message)
 				}
-				guild, err := discord.Guild(channel.GuildID)
-				if err != nil {
-					log.Fatal("Error retrieving guild information: ", err)
-				}
-				message := Message{Content: message.Content, ChannelName: channel.Name, GuildName: guild.Name, ChatID: guildID}
-				fmt.Println(message)
-				sendMessageToTelegram(telegram, message)
 			}
 		}
 	})
